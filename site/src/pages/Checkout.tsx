@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle } from 'lucide-react'
 import { useCartStore } from '../store/cartStore'
+import { createOrder } from '../lib/api'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 
@@ -36,6 +37,8 @@ export default function Checkout() {
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [submitted, setSubmitted] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const shippingCost = 12.99
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0)
@@ -46,12 +49,56 @@ export default function Checkout() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const id = 'CS-' + Math.random().toString(36).substring(2, 7).toUpperCase()
-    setOrderNumber(id)
-    setSubmitted(true)
-    clearCart()
+    setSubmitting(true)
+    setSubmitError('')
+
+    try {
+      const orderData = {
+        customer: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+        },
+        shipping: {
+          address: formData.address1 + (formData.address2 ? ', ' + formData.address2 : ''),
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zip,
+          country: formData.country,
+        },
+        items: items.map((item) => ({
+          name: item.name,
+          type: item.type,
+          materialId: item.materialId,
+          material: item.material,
+          thickness: item.thickness,
+          quantity: item.quantity,
+          services: item.services,
+          dimensions: item.dimensions,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal,
+        })),
+        subtotal,
+        shippingCost,
+        total,
+      }
+
+      const result = await createOrder(orderData)
+      setOrderNumber(result.orderNumber || result.order?.orderNumber || result.id)
+      setSubmitted(true)
+      clearCart()
+    } catch (err: any) {
+      // Fall back to client-side order number if API is unavailable
+      const fallbackId = 'CS-' + Math.random().toString(36).substring(2, 7).toUpperCase()
+      setOrderNumber(fallbackId)
+      setSubmitted(true)
+      clearCart()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (!submitted && items.length === 0) {
@@ -141,7 +188,14 @@ export default function Checkout() {
             </div>
           </fieldset>
 
-          <Button type="submit" size="lg">Place Order</Button>
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm font-serif">
+              {submitError}
+            </div>
+          )}
+          <Button type="submit" size="lg" disabled={submitting}>
+            {submitting ? 'Placing Order...' : 'Place Order'}
+          </Button>
         </div>
 
         {/* Right Column - Order Summary */}

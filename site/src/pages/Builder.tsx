@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
-import { calculateTotal, formatPrice } from '../lib/pricing'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { calculateTotal, formatPrice, parsePricingParams, type PricingParams } from '../lib/pricing'
+import { calculatePrice as apiCalculatePrice, fetchPricingParameters } from '../lib/api'
 import { materials } from '../data/materials'
 import { templates, templateCategories } from '../data/templates'
 import { useCartStore } from '../store/cartStore'
@@ -23,6 +24,7 @@ export default function Builder() {
   const [selectedThickness, setSelectedThickness] = useState(materials[0].thicknesses[0].label)
   const [quantity, setQuantity] = useState(1)
   const [selectedServices, setSelectedServices] = useState<string[]>([])
+  const [pricingParams, setPricingParams] = useState<PricingParams | null>(null)
 
   const selectedMaterial = materials.find((m) => m.id === selectedMaterialId)
 
@@ -43,12 +45,59 @@ export default function Builder() {
     return templates.filter((t) => t.category === categoryFilter)
   }, [categoryFilter])
 
-  const pricing = useMemo(() => {
+  // Fetch pricing parameters from API once on mount
+  useEffect(() => {
+    fetchPricingParameters()
+      .then((grouped) => setPricingParams(parsePricingParams(grouped)))
+      .catch(() => {
+        // API unavailable — client-side will use hardcoded defaults
+      })
+  }, [])
+
+  const clientPricing = useMemo(() => {
     if (!selectedTemplate || !selectedMaterialId || !selectedThickness) {
-      return { unitPrice: 0, discount: 0, subtotal: 0 }
+      return { unitPrice: 0, discount: 0, subtotal: 0, setupFee: 0 }
     }
-    return calculateTotal(selectedMaterialId, selectedThickness, width, height, quantity, selectedServices)
+    return calculateTotal(selectedMaterialId, selectedThickness, width, height, quantity, selectedServices, pricingParams)
+  }, [selectedTemplate, width, height, selectedMaterialId, selectedThickness, quantity, selectedServices, pricingParams])
+
+  const [apiPricing, setApiPricing] = useState<{ unitPrice: number; discount: number; subtotal: number; setupFee?: number } | null>(null)
+  const [apiPricingLoading, setApiPricingLoading] = useState(false)
+  const apiDebounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    setApiPricing(null)
+    if (!selectedTemplate || !selectedMaterialId || !selectedThickness) return
+
+    clearTimeout(apiDebounceRef.current)
+    apiDebounceRef.current = setTimeout(async () => {
+      setApiPricingLoading(true)
+      try {
+        const result = await apiCalculatePrice({
+          materialId: selectedMaterialId,
+          thicknessLabel: selectedThickness,
+          width,
+          height,
+          quantity,
+          services: selectedServices,
+        })
+        setApiPricing({
+          unitPrice: result.unitPrice,
+          discount: result.discount,
+          subtotal: result.subtotal,
+          setupFee: result.setupFee,
+        })
+      } catch {
+        // API unavailable, keep using client-side pricing
+      } finally {
+        setApiPricingLoading(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(apiDebounceRef.current)
   }, [selectedTemplate, width, height, selectedMaterialId, selectedThickness, quantity, selectedServices])
+
+  const pricing = apiPricing || clientPricing
 
   function handleSelectTemplate(template: ShapeTemplate) {
     setSelectedTemplate(template)
@@ -223,14 +272,18 @@ export default function Builder() {
                       unitPrice={pricing.unitPrice}
                       quantity={quantity}
                       discount={pricing.discount}
+                      setupFee={pricing.setupFee}
                       subtotal={pricing.subtotal}
                     />
 
                     <div className="mt-6 pt-4 border-t border-gray-200">
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-lg font-sans font-bold text-charcoal">Total</span>
-                        <span className="text-2xl font-sans font-bold text-primary">
+                        <span className="text-2xl font-sans font-bold text-primary flex items-center gap-2">
                           {formatPrice(pricing.subtotal)}
+                          {apiPricingLoading && (
+                            <span className="inline-block w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          )}
                         </span>
                       </div>
                       <Button onClick={handleAddToCart} className="w-full" size="lg">

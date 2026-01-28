@@ -1,5 +1,7 @@
 node_modules
 dist
 .claude
+.wrangler
+*.tsbuildinfo
 nul
 UsersAdminProjectsclean-shapes-2srcpagesUpload.tsx

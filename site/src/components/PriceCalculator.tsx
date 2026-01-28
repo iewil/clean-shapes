@@ -2,6 +2,7 @@ interface PriceCalculatorProps {
   unitPrice: number
   quantity: number
   discount?: number
+  setupFee?: number
   subtotal: number
 }
 
@@ -9,6 +10,7 @@ export default function PriceCalculator({
   unitPrice,
   quantity,
   discount,
+  setupFee,
   subtotal,
 }: PriceCalculatorProps) {
   return (
@@ -32,6 +34,15 @@ export default function PriceCalculator({
           <span className="font-sans text-sm text-gray-600">Discount</span>
           <span className="font-sans text-sm font-semibold text-green-600">
             {'-' + Math.round(discount * 100) + '%'}
+          </span>
+        </div>
+      )}
+
+      {setupFee != null && setupFee > 0 && (
+        <div className="flex items-center justify-between">
+          <span className="font-sans text-sm text-gray-600">Setup Fee</span>
+          <span className="font-sans text-sm font-semibold text-charcoal">
+            {'$' + setupFee.toFixed(2)}
           </span>
         </div>
       )}

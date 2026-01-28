@@ -7,6 +7,7 @@ import Upload from './pages/Upload'
 import Services from './pages/Services'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
+import Catalog from './pages/Catalog'
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/services" element={<Services />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
+        <Route path="/catalog" element={<Catalog />} />
       </Route>
     </Routes>
   )

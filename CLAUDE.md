@@ -18,22 +18,58 @@ A full-featured custom metal fabrication ordering site (similar to SendCutSend) 
 - **Fonts:** Libre Baskerville (serif body), Rajdhani (sans headings) via Google Fonts
 - **Backend (in progress):** Cloudflare Workers (Pages Functions) + D1 database
 
-## Commands
+## Local Development
+
+The project consists of three services that run locally:
 
 ```bash
-npm run dev      # Start local dev server (Vite)
-npm run build    # TypeScript check + Vite production build → dist/
-npm run preview  # Preview production build locally
-npx tsc --noEmit # Type-check only
+# Terminal 1: Public site (port 5173)
+cd site
+npm run dev
+
+# Terminal 2: Admin site (port 5174)
+cd admin
+npm run dev
+
+# Terminal 3: API backend + D1 database (port 8788)
+cd admin
+npm run dev:api
 ```
 
-### Deployment
+**Service URLs:**
+- Public site: http://localhost:5173
+- Admin portal: http://localhost:5174
+- API backend: http://localhost:8788/api/*
+
+### Database Setup
 
 ```bash
-# Deploy to Cloudflare Pages
+cd admin
+
+# Seed local D1 database with schema and initial data
+npm run db:seed
+
+# Optional: Seed with additional test orders
+npm run db:seed-orders
+```
+
+### Build & Deploy
+
+```bash
+# Build public site
+cd site
+npm run build    # TypeScript check + Vite production build → dist/
+
+# Build admin site
+cd admin
+npm run build    # TypeScript check + Vite production build → dist/
+
+# Deploy public site to Cloudflare Pages
+cd site
 npx wrangler pages deploy dist --project-name clean-shapes
 
-# When D1 is set up, apply migrations with:
+# Apply migrations to production D1 database
+cd ..
 npx wrangler d1 execute clean-shapes-db --file=migrations/0001_initial.sql
 ```
 
@@ -54,56 +90,60 @@ npx wrangler d1 execute clean-shapes-db --file=migrations/0001_initial.sql
 
 ## Project Structure
 
+The project uses a **dual-app architecture** with separate public site and admin portal:
+
 ```
 clean-shapes-2/
-├── public/
-│   ├── _redirects              # SPA catch-all for Cloudflare Pages
-│   └── vite.svg
-├── src/
-│   ├── main.tsx                # Entry point, BrowserRouter
-│   ├── App.tsx                 # Route definitions
-│   ├── index.css               # Tailwind directives + base styles
-│   ├── components/
-│   │   ├── Layout.tsx          # Header + Outlet + Footer shell
-│   │   ├── Header.tsx          # Sticky responsive nav with cart badge
-│   │   ├── Footer.tsx          # Heritage-style dark footer
-│   │   ├── MaterialCard.tsx    # Material display card
-│   │   ├── TemplateCard.tsx    # Shape template card with SVG preview
-│   │   ├── ShapePreview.tsx    # SVG path renderer
-│   │   ├── FileDropzone.tsx    # Drag-and-drop file upload
-│   │   ├── PriceCalculator.tsx # Price breakdown display
-│   │   ├── ServiceAddonPicker.tsx # Service checkbox list
-│   │   ├── CartItem.tsx        # Cart line item display
-│   │   ├── admin/
-│   │   │   └── AdminLayout.tsx # (in progress) Admin sidebar layout
-│   │   └── ui/                 # Shared UI primitives (no external deps)
-│   │       ├── Button.tsx      # variant: primary|secondary|outline|ghost
-│   │       ├── Input.tsx       # Labeled text input
-│   │       ├── Select.tsx      # Labeled native select
-│   │       ├── Card.tsx        # Card, CardHeader, CardTitle, CardContent, CardFooter
-│   │       ├── Badge.tsx       # Colored badge/pill
-│   │       └── Tabs.tsx        # Tabs, TabsList, TabsTrigger, TabsContent
-│   ├── pages/
-│   │   ├── Home.tsx            # Hero, 3 ordering paths, materials showcase, trust badges
-│   │   ├── Materials.tsx       # Category tabs, material cards, thickness/pricing detail
-│   │   ├── Builder.tsx         # Template gallery, configurator, live preview, pricing, add-to-cart
-│   │   ├── Upload.tsx          # File dropzone, material/thickness, services, pricing, add-to-cart
-│   │   ├── Services.tsx        # Service cards grid with icons and pricing
-│   │   ├── Cart.tsx            # Cart items, order summary, checkout link
-│   │   ├── Checkout.tsx        # Contact + shipping form, order summary, mock confirmation
-│   │   └── admin/              # (in progress)
-│   │       ├── Dashboard.tsx
-│   │       └── Pricing.tsx
-│   ├── store/
-│   │   └── cartStore.ts        # Zustand: items[], addItem, removeItem, updateQuantity, clearCart
-│   ├── data/                   # Static data (to be replaced by API)
-│   │   ├── materials.ts        # 15 materials with thicknesses and pricing
-│   │   ├── templates.ts        # 30+ shape templates with SVG path generators
-│   │   └── services.ts         # 8 fabrication services with flat fees
-│   └── lib/
-│       ├── pricing.ts          # Client-side price calculation (current)
-│       └── api.ts              # (in progress) API client for backend
-├── functions/                  # (in progress) Cloudflare Pages Functions (Workers API)
+├── site/                       # Public-facing customer site (port 5173)
+│   ├── public/
+│   │   ├── _redirects          # SPA catch-all for Cloudflare Pages
+│   │   └── vite.svg
+│   ├── src/
+│   │   ├── main.tsx            # Entry point, BrowserRouter
+│   │   ├── App.tsx             # Route definitions
+│   │   ├── index.css           # Tailwind directives + base styles
+│   │   ├── components/
+│   │   │   ├── Layout.tsx      # Header + Outlet + Footer shell
+│   │   │   ├── Header.tsx      # Sticky responsive nav with cart badge
+│   │   │   ├── Footer.tsx      # Heritage-style dark footer
+│   │   │   ├── MaterialCard.tsx, TemplateCard.tsx, etc.
+│   │   │   └── ui/             # Shared UI primitives (no external deps)
+│   │   │       └── Button.tsx, Input.tsx, Select.tsx, Card.tsx, etc.
+│   │   ├── pages/
+│   │   │   ├── Home.tsx, Materials.tsx, Builder.tsx, Upload.tsx
+│   │   │   ├── Services.tsx, Cart.tsx, Checkout.tsx
+│   │   ├── store/
+│   │   │   └── cartStore.ts    # Zustand: cart state management
+│   │   ├── data/               # Static data (to be replaced by API calls)
+│   │   │   ├── materials.ts, templates.ts, services.ts
+│   │   └── lib/
+│   │       └── pricing.ts      # Client-side price calculation
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tailwind.config.js
+│
+├── admin/                      # Admin portal (port 5174)
+│   ├── src/
+│   │   ├── main.tsx            # Entry point, BrowserRouter
+│   │   ├── App.tsx             # Admin route definitions
+│   │   ├── index.css           # Tailwind directives + base styles
+│   │   ├── components/
+│   │   │   ├── AdminLayout.tsx # Dark sidebar layout with nav
+│   │   │   └── ui/             # Shared UI components
+│   │   │       └── Button.tsx, Input.tsx, Select.tsx, etc.
+│   │   ├── pages/
+│   │   │   ├── Dashboard.tsx   # Stats cards + recent orders table
+│   │   │   ├── Orders.tsx      # Order list with filtering and search
+│   │   │   ├── OrderDetail.tsx # Single order view with status editing
+│   │   │   └── Pricing.tsx     # Pricing parameters with sliders
+│   │   ├── lib/
+│   │   │   └── api.ts          # API client (fetch wrappers)
+│   │   └── types.ts            # TypeScript types for API responses
+│   ├── package.json
+│   ├── vite.config.ts          # Configured for port 5174, proxies /api → 8788
+│   └── tailwind.config.js
+│
+├── functions/                  # Cloudflare Pages Functions (Workers API, port 8788)
 │   ├── env.ts                  # Shared Env type, jsonResponse/errorResponse helpers
 │   └── api/
 │       ├── _middleware.ts      # CORS middleware
@@ -117,47 +157,84 @@ clean-shapes-2/
 │       │   └── [id].ts         # GET/PUT /api/orders/:id
 │       └── admin/
 │           └── stats.ts        # GET /api/admin/stats
+│
 ├── migrations/
-│   └── 0001_initial.sql        # D1 schema: pricing_parameters, materials, thicknesses, orders, order_items
-├── wrangler.toml               # Cloudflare config with D1 binding (database_id needs filling)
-├── tailwind.config.js
-├── postcss.config.js
-├── vite.config.ts
-├── tsconfig.json
-└── package.json
+│   ├── 0001_initial.sql        # D1 schema + seed data
+│   └── 0002_seed_orders.sql    # Optional: test order data
+├── wrangler.toml               # Cloudflare config with D1 binding
+└── CLAUDE.md                   # This file
 ```
 
 ## Current State
 
-### Completed (deployed)
+### Completed & Working Locally
+
+**Public Site (site/):**
 - All customer-facing pages: Home, Materials, Builder, Upload, Services, Cart, Checkout
 - Full client-side ordering flow with Zustand cart
-- Client-side pricing engine (lib/pricing.ts) with material rates and quantity discounts
+- Client-side pricing engine with material rates and quantity discounts
 - 30+ shape templates with live SVG preview
 - Drag-and-drop file upload with SVG preview
 - Responsive layout with heritage design
 - Deployed to Cloudflare Pages at clean-shapes.pages.dev
 
-### In Progress (partially written, not yet wired up or deployed)
-The following files exist but are incomplete or have not been reviewed/tested:
-- `functions/` — Cloudflare Workers API endpoints (all 7 route files written by agent, need review)
-- `migrations/0001_initial.sql` — D1 schema with seed data (written, not applied)
-- `wrangler.toml` — Config exists but `database_id` is empty (D1 not yet created)
-- `src/lib/api.ts` — Frontend API client (written by agent, needs review)
-- `src/components/admin/AdminLayout.tsx` — Admin sidebar layout (written by agent, needs review)
-- `src/pages/admin/Dashboard.tsx` — Admin dashboard (written by agent, needs review)
-- `src/pages/admin/Pricing.tsx` — Pricing parameter editor (written by agent, needs review)
+**Admin Portal (admin/):**
+- Complete admin site as separate app running on port 5174
+- AdminLayout with dark sidebar navigation and mobile support
+- Dashboard page with stats cards (orders, revenue, materials) and recent orders table
+- Orders page with status filtering, search, and order list table
+- OrderDetail page with full order view, status editing, and notes
+- Pricing page with all pricing parameters grouped by category, slider + number inputs, bulk save
+- Full API integration with backend via proxy
 
-### Not Yet Started
-- `src/pages/admin/Orders.tsx` — Order management list page
-- `src/pages/admin/OrderDetail.tsx` — Single order view/edit
-- `src/pages/admin/Materials.tsx` — Admin material management (optional)
-- Admin routes in App.tsx (need to add /admin/* routes with AdminLayout)
-- Frontend pages updated to call API instead of using static data/client-side pricing
-- D1 database creation and migration
-- Redeployment with Pages Functions + D1
+**API Backend (functions/):**
+- All Cloudflare Pages Functions endpoints implemented:
+  - `/api/materials` - List materials
+  - `/api/pricing/parameters` - Get/update pricing params
+  - `/api/pricing/calculate` - Server-side price calculation
+  - `/api/orders` - List/create orders
+  - `/api/orders/:id` - Get/update single order
+  - `/api/admin/stats` - Dashboard statistics
+- CORS middleware configured
+- Local development running on port 8788 with Wrangler Pages Dev
+- D1 database with full schema and seed data (26 pricing params, 15 materials, 80+ thickness options)
 
-## Pending Requirements: API & Admin Portal
+**Infrastructure:**
+- Dual-app architecture with separate Vite configs for site and admin
+- Admin Vite configured for port 5174 with API proxy to 8788
+- D1 local database seeded and working
+- All three services (public site, admin site, API) running concurrently in development
+
+### Not Yet Deployed to Production
+- API backend (functions/) - Need to deploy Pages Functions
+- Admin portal (admin/) - Need to deploy to separate subdomain or path
+- D1 production database - Need to create and apply migrations to production
+- Integration of public site with API endpoints (still using static data)
+
+## Production Deployment TODO
+
+The following steps are needed to deploy the API and admin portal to production:
+
+1. **Create Production D1 Database:**
+   - Run `npx wrangler d1 create clean-shapes-db` to create production database
+   - Update `wrangler.toml` with production `database_id`
+   - Apply migrations: `npx wrangler d1 execute clean-shapes-db --file=migrations/0001_initial.sql`
+
+2. **Deploy API Backend:**
+   - Deploy Pages Functions alongside static site (automatic with Cloudflare Pages)
+   - Verify D1 binding works in production
+
+3. **Deploy Admin Portal:**
+   - Build admin site: `cd admin && npm run build`
+   - Deploy to separate subdomain (e.g., admin.clean-shapes.pages.dev) or
+   - Deploy as separate Cloudflare Pages project
+
+4. **Integrate Public Site with API:**
+   - Update Checkout page to POST to `/api/orders`
+   - Optionally update Builder/Upload to use `/api/pricing/calculate`
+   - Optionally update Materials page to fetch from `/api/materials`
+
+## API Reference
 
 ### API Service (Cloudflare Workers via Pages Functions)
 
